@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clicker Game</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Clicker Game</h1>
+    <button id="clickButton">Click me!</button>
+    <p>Clicks: <span id="clickCount">0</span></p>
+
+    <script>
+        let userId = null;
+        
+        function onTelegramWebAppReady() {
+            userId = Telegram.WebApp.initDataUnsafe.user.id;
+            document.getElementById('clickButton').addEventListener('click', function () {
+                axios.post('/click', { user_id: userId })
+                    .then(function (response) {
+                        document.getElementById('clickCount').textContent = response.data.count;
+                    })
+                    .catch(function (error) {
+                        console.error('Error:', error);
+                    });
+            });
+        }
+
+        if (window.Telegram) {
+            window.Telegram.WebApp.onEvent('ready', onTelegramWebAppReady);
+        } else {
+            console.error('Telegram WebApp is not available.');
+        }
+    </script>
+</body>
+</html>
