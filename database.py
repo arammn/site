@@ -83,7 +83,7 @@ class Database:
                 FOREIGN KEY (chat_id) REFERENCES groups(chat_id)
             )
         """)
-        # Dice Game
+        # Dice
         await self._db.execute("""
             CREATE TABLE IF NOT EXISTS dice_games (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
