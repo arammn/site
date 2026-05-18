@@ -1,4 +1,4 @@
-"""Lucky Draw – float chance, multi‑winner, timer, gift, ignore."""
+"""Lucky Draw – float chance, multi‑winner, timer, gift."""
 import random, logging, time, html, json
 from config import Config
 from database import Database
@@ -16,8 +16,6 @@ class LuckyDrawManager:
 
         draw = await self.db.get_active_lucky_draw(chat_id)
         if not draw or user.is_bot:
-            return
-        if await self.db.is_ignored(chat_id, user.id):
             return
         if await self._is_admin(chat_id, user.id, context):
             return
