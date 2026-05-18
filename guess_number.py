@@ -16,7 +16,6 @@ class GuessNumberManager:
 
         game = await self.db.get_active_guess_number(chat_id)
         if not game or user.is_bot: return
-        if await self.db.is_ignored(chat_id, user.id): return
 
         try: guess = int(msg.text.strip())
         except: return
