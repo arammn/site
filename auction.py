@@ -1,4 +1,4 @@
-"""Auction core – Russian, HTML, race‑free, optimized."""
+"""Auction core – Russian, HTML, race‑free, paid stars enforced, resilient."""
 import time, asyncio, logging, html
 from database import Database
 
@@ -23,9 +23,13 @@ class AuctionManager:
         game = await self.db.get_active_game(chat_id)
         if not game or user.is_bot:
             return
-        if await self.db.is_ignored(chat_id, user.id):
-            return
         if await self._is_admin(chat_id, user.id, context):
+            return
+
+        # Enforce paid stars
+        allowed = game['allowed_stars']
+        paid = getattr(msg, 'paid_star_count', 0)
+        if allowed and paid not in allowed:
             return
 
         lock = self._lock(chat_id)
@@ -34,7 +38,6 @@ class AuctionManager:
             if not game or game.get('current_leader_id') == user.id:
                 return
 
-            paid_stars = getattr(msg, 'paid_star_count', 0)
             if user.username:
                 user_disp = f"@{user.username}"
             else:
@@ -50,7 +53,7 @@ class AuctionManager:
                 f"Новый лидер: <b>{user_disp}</b>. До конца: {time_left}.",
                 parse_mode="HTML"
             )
-            await self.db.increment_bid(chat_id, paid_stars)
+            await self.db.increment_bid(chat_id, paid)
             await self._reset_timer(context, chat_id, user.id, user_disp, game)
 
     async def _reset_timer(self, context, chat_id, user_id, user_name, game):
