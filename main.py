@@ -2,7 +2,6 @@
 import asyncio, logging, sys
 from pathlib import Path
 from telegram.ext import ApplicationBuilder, ContextTypes
-from telegram.error import Conflict
 from config import Config
 from database import Database
 from auction import AuctionManager
@@ -54,11 +53,6 @@ class App:
             )
             logger.info("Heartbeat (1h) started")
             await asyncio.Future()
-        except Conflict:
-            logger.error("Conflict: Another bot instance is already running. Shutting down.")
-            await self.application.updater.stop()
-            await self.application.stop()
-            await self.application.shutdown()
         except KeyboardInterrupt:
             pass
         finally:
