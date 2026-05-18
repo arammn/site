@@ -1,4 +1,4 @@
-"""Lucky Draw – float chance, multi‑winner, timer, gift."""
+"""Lucky Draw – float chance, multi‑winner, timer, gift, ignore."""
 import random, logging, time, html, json
 from config import Config
 from database import Database
@@ -17,11 +17,13 @@ class LuckyDrawManager:
         draw = await self.db.get_active_lucky_draw(chat_id)
         if not draw or user.is_bot:
             return
+        if await self.db.is_ignored(chat_id, user.id):
+            return
         if await self._is_admin(chat_id, user.id, context):
             return
 
-        chance = draw['chance']
-        roll = random.uniform(0, 100)
+        chance = draw['chance']   # now float
+        roll = random.uniform(0, 100)   # 0 to 100
         if roll > chance:
             return
 
@@ -31,10 +33,13 @@ class LuckyDrawManager:
         else:
             winner = html.escape(user.full_name)
 
+        # Update winners list
         remaining, is_new = await self.db.update_lucky_draw_winner(chat_id, user.id)
         if not is_new:
+            # already won
             return
 
+        # Send gift if configured
         gift_id = draw.get('gift_id')
         if gift_id:
             try:
@@ -53,12 +58,14 @@ class LuckyDrawManager:
         try: await context.bot.pin_chat_message(chat_id, win_msg.message_id, disable_notification=False)
         except: pass
 
+        # Notify admins
         for admin_id in Config.ADMIN_IDS:
             dm_text = f"🎰 <b>Lucky Draw Win!</b>\nГруппа: <code>{chat_id}</code>\nПобедитель: <b>{winner}</b>\nПриз: {prize}\nID: <code>{user.id}</code>"
             if user.username: dm_text += f"\nЮзернейм: @{user.username}"
             try: await context.bot.send_message(admin_id, dm_text, parse_mode="HTML")
             except: pass
 
+        # If no winners left, end the game
         if remaining <= 0:
             await self._end_lucky_draw(context, chat_id, f"Все победители выбраны!")
 
