@@ -33,12 +33,11 @@ def build_active_games_keyboard(games, draws, dice, guess_nums):
         buttons.append([InlineKeyboardButton(f"✏️ Изменить {g['chat_id']}", callback_data=f"edit_game:{g['chat_id']}")])
         buttons.append([InlineKeyboardButton(f"📊 Статистика {g['chat_id']}", callback_data=f"stats_game:{g['chat_id']}")])
     for d in draws:
-        buttons.append([InlineKeyboardButton(f"🛑 Lucky Draw {d['chat_id']} – {d['prize']}", callback_data=f"stop_lucky:{d['chat_id']}")])
-        buttons.append([InlineKeyboardButton(f"✏️ Изменить Lucky {d['chat_id']}", callback_data=f"edit_lucky:{d['chat_id']}")])
+        buttons.append([InlineKeyboardButton(f"🎰 Lucky Draw {d['chat_id']} – {d['prize']}", callback_data=f"stop_lucky:{d['chat_id']}")])
     for dg in dice:
-        buttons.append([InlineKeyboardButton(f"🛑 Dice {dg['chat_id']} – {dg['prize']}", callback_data=f"stop_dice:{dg['chat_id']}")])
+        buttons.append([InlineKeyboardButton(f"🎲 Dice {dg['chat_id']} – {dg['prize']}", callback_data=f"stop_dice:{dg['chat_id']}")])
     for gn in guess_nums:
-        buttons.append([InlineKeyboardButton(f"🛑 Guess {gn['chat_id']} – {gn['prize']}", callback_data=f"stop_guess:{gn['chat_id']}")])
+        buttons.append([InlineKeyboardButton(f"🎯 Guess {gn['chat_id']} – {gn['prize']}", callback_data=f"stop_guess:{gn['chat_id']}")])
     buttons.append([InlineKeyboardButton("Закрыть", callback_data="cancel_action")])
     return InlineKeyboardMarkup(buttons)
 
@@ -46,17 +45,6 @@ def build_edit_game_keyboard(chat_id: int):
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("⏱ Изменить время", callback_data=f"edit_timer:{chat_id}")],
         [InlineKeyboardButton("💎 Изменить звёзды", callback_data=f"edit_stars:{chat_id}")],
-        [InlineKeyboardButton("🔙 Назад", callback_data=f"back_from_edit:{chat_id}")]
-    ])
-
-def build_edit_lucky_keyboard(chat_id: int):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎲 Шанс", callback_data=f"edit_lucky_chance:{chat_id}")],
-        [InlineKeyboardButton("👥 Победители", callback_data=f"edit_lucky_winners:{chat_id}")],
-        [InlineKeyboardButton("⏱ Длительность", callback_data=f"edit_lucky_duration:{chat_id}")],
-        [InlineKeyboardButton("🎁 Приз", callback_data=f"edit_lucky_prize:{chat_id}")],
-        [InlineKeyboardButton("🖼 Фото", callback_data=f"edit_lucky_photo:{chat_id}")],
-        [InlineKeyboardButton("🎁 Подарок", callback_data=f"edit_lucky_gift:{chat_id}")],
         [InlineKeyboardButton("🔙 Назад", callback_data=f"back_from_edit:{chat_id}")]
     ])
 
