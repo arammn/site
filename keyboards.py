@@ -50,6 +50,7 @@ def build_edit_game_keyboard(chat_id: int):
     ])
 
 def build_edit_lucky_keyboard(chat_id: int):
+    """Submenu for editing Lucky Draw parameters."""
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎲 Шанс", callback_data=f"edit_lucky_chance:{chat_id}")],
         [InlineKeyboardButton("👥 Победители", callback_data=f"edit_lucky_winners:{chat_id}")],
