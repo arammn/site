@@ -16,6 +16,7 @@ class DiceGameManager:
 
         game = await self.db.get_active_dice_game(chat_id)
         if not game or user.is_bot: return
+        if await self.db.is_ignored(chat_id, user.id): return
         if msg.dice.emoji != game['dice_emoji']: return
         if msg.dice.value != game['winning_value']: return
 
