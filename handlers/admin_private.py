@@ -1,4 +1,4 @@
-"""Admin private chat handlers – full, no ignore commands."""
+"""Admin private chat handlers – complete with all game modes."""
 from telegram import Update
 from telegram.ext import (
     CommandHandler, CallbackQueryHandler, ConversationHandler,
@@ -19,7 +19,6 @@ ASK_CHANCE, ASK_PRIZE, ASK_PHOTO, ASK_WINNERS, ASK_LUCKY_DURATION, ASK_GIFT_ID =
 DICE_EMOJI, DICE_VALUE, DICE_PRIZE = range(20, 23)
 EDIT_TIMER, EDIT_STARS = range(30, 32)
 GUESS_MIN, GUESS_MAX, GUESS_DURATION, GUESS_PRIZE, GUESS_PHOTO = range(40, 45)
-EDIT_LUCKY_CHANCE, EDIT_LUCKY_WINNERS, EDIT_LUCKY_DURATION, EDIT_LUCKY_PRIZE, EDIT_LUCKY_PHOTO, EDIT_LUCKY_GIFT = range(50, 56)
 
 db = Database()
 lucky_mgr = LuckyDrawManager()
@@ -77,7 +76,7 @@ async def stats_cmd(update: Update, context):
         text += f"\nГруппа <code>{g['chat_id']}</code>: лидер {leader}, ставок: {bids}, звёзд: {stars}"
     await update.message.reply_text(text, parse_mode="HTML")
 
-# ── group select → mode ──
+# ── group select -> mode ──
 async def select_group_cb(update: Update, context):
     query = update.callback_query; await query.answer()
     if not await is_admin(update.effective_user.id): return await query.edit_message_text("⛔ Нет доступа.")
@@ -101,8 +100,9 @@ async def auction_default_cb(update: Update, context):
     mins = game['timer_duration'] // 60
     prize = html.escape(game.get('description', '🎁'))
     desc_line = f"🎁 Приз: {prize}\n" if prize else ""
-    try: await context.bot.send_message(chat_id, f"🎉 <b>Ивент начался!</b>\n\n⭐ 1 сообщение в чате = {stars} звёзд.\n⏱ Цель: продержаться {mins} мин без перебива.\n{desc_line}", parse_mode="HTML")
-    except: pass
+    try:
+        await context.bot.send_message(chat_id, f"🎉 <b>Ивент начался!</b>\n\n⭐ 1 сообщение в чате = {stars} звёзд.\n⏱ Цель: продержаться {mins} мин без перебива.\n{desc_line}", parse_mode="HTML")
+    except Exception as e: logger.error(f"Announce fail: {e}")
     await query.edit_message_text("✅ Ивент запущен со стандартными настройками.")
 
 async def auction_custom_cb(update: Update, context) -> int:
@@ -128,7 +128,8 @@ async def ask_stars(update: Update, context) -> int:
         if not stars or any(not (1 <= s <= 999) for s in stars): raise ValueError
         stars = sorted(set(stars))
     except:
-        await update.message.reply_text("❌ Введите положительные числа: 1,2,3"); return ASK_STARS
+        await update.message.reply_text("❌ Введите положительные числа: 1,2,3")
+        return ASK_STARS
     context.user_data["custom_stars"] = stars
     await update.message.reply_text("🎁 Описание приза (или /skip):")
     return ASK_DESCRIPTION
@@ -144,8 +145,9 @@ async def ask_description(update: Update, context) -> int:
     mins = timer // 60
     prize = html.escape(description) if description else '🎁'
     desc_line = f"🎁 Приз: {prize}\n" if description else ""
-    try: await context.bot.send_message(chat_id, f"🎉 <b>Ивент начался!</b>\n\n⭐ 1 сообщение в чате = {', '.join(map(str, stars))} звёзд.\n⏱ Цель: продержаться {mins} мин без перебива.\n{desc_line}", parse_mode="HTML")
-    except: pass
+    try:
+        await context.bot.send_message(chat_id, f"🎉 <b>Ивент начался!</b>\n\n⭐ 1 сообщение в чате = {', '.join(map(str, stars))} звёзд.\n⏱ Цель: продержаться {mins} мин без перебива.\n{desc_line}", parse_mode="HTML")
+    except Exception as e: logger.error(f"Announce fail: {e}")
     return ConversationHandler.END
 
 # ── Edit auction ──
@@ -179,7 +181,7 @@ async def edit_timer_value(update: Update, context):
     chat_id = context.user_data["edit_chat_id"]
     await db.update_game_settings(chat_id, timer=new_timer)
     mins = new_timer // 60; secs = new_timer % 60
-    duration_str = f"{mins} мин" if secs==0 else f"{mins} мин {secs} сек"
+    duration_str = f"{mins} мин" if secs == 0 else f"{mins} мин {secs} сек"
     try: await context.bot.send_message(chat_id, f"⏱ <b>Время изменено!</b> Новая длительность: {duration_str}.", parse_mode="HTML")
     except: pass
     await update.message.reply_text(f"✅ Время изменено на {new_timer} сек.")
@@ -198,7 +200,7 @@ async def edit_stars_value(update: Update, context):
     await update.message.reply_text(f"✅ Звёзды изменены на {', '.join(map(str, stars))}.")
     return ConversationHandler.END
 
-# ── Lucky Draw creation ──
+# ── Lucky Draw (float chance) ──
 async def lucky_draw_cb(update: Update, context) -> int:
     query = update.callback_query; await query.answer()
     chat_id = int(query.data.split(":")[1])
@@ -210,29 +212,37 @@ async def ask_chance(update: Update, context) -> int:
     text = update.message.text.strip().replace(',', '.')
     try:
         chance = float(text)
-        if not (0.001 <= chance <= 100): raise ValueError
+        if not (0.001 <= chance <= 100):
+            raise ValueError
     except:
-        await update.message.reply_text("❌ Введите число от 0.001 до 100."); return ASK_CHANCE
+        await update.message.reply_text("❌ Введите число от 0.001 до 100.")
+        return ASK_CHANCE
     context.user_data["draw_chance"] = chance
-    await update.message.reply_text("🎁 Введите описание приза:"); return ASK_PRIZE
+    await update.message.reply_text("🎁 Введите описание приза:")
+    return ASK_PRIZE
 
 async def ask_prize(update: Update, context) -> int:
     prize = update.message.text.strip()
     if not prize: await update.message.reply_text("❌ Приз не может быть пустым."); return ASK_PRIZE
     context.user_data["draw_prize"] = prize
-    await update.message.reply_text("👥 Введите количество победителей (по умолчанию 1):"); return ASK_WINNERS
+    await update.message.reply_text("👥 Введите количество победителей (по умолчанию 1):")
+    return ASK_WINNERS
 
 async def ask_winners(update: Update, context) -> int:
     text = update.message.text.strip()
-    if not text.isdigit() or int(text) < 1: await update.message.reply_text("❌ Введите целое число больше 0."); return ASK_WINNERS
+    if not text.isdigit() or int(text) < 1:
+        await update.message.reply_text("❌ Введите целое число больше 0."); return ASK_WINNERS
     context.user_data["draw_winners"] = int(text)
-    await update.message.reply_text("⏱ Введите длительность игры в минутах (0 = без ограничения):"); return ASK_LUCKY_DURATION
+    await update.message.reply_text("⏱ Введите длительность игры в минутах (0 = без ограничения):")
+    return ASK_LUCKY_DURATION
 
 async def ask_lucky_duration(update: Update, context) -> int:
     text = update.message.text.strip()
     if not text.isdigit(): await update.message.reply_text("❌ Введите число минут."); return ASK_LUCKY_DURATION
-    context.user_data["draw_duration"] = int(text)
-    await update.message.reply_text("🖼 Отправьте фото для объявления (или /skip):"); return ASK_PHOTO
+    duration = int(text)
+    context.user_data["draw_duration"] = duration
+    await update.message.reply_text("🖼 Отправьте фото для объявления (или /skip):")
+    return ASK_PHOTO
 
 async def ask_photo(update: Update, context) -> int:
     if update.message.photo:
@@ -243,7 +253,8 @@ async def ask_photo(update: Update, context) -> int:
         context.user_data["draw_photo"] = None
     else:
         await update.message.reply_text("❌ Отправьте фото или /skip."); return ASK_PHOTO
-    await update.message.reply_text("🎁 Введите gift_id подарка (числовой ID) или /skip:"); return ASK_GIFT_ID
+    await update.message.reply_text("🎁 Введите gift_id подарка (числовой ID) или /skip:")
+    return ASK_GIFT_ID
 
 async def ask_gift_id(update: Update, context) -> int:
     text = update.message.text.strip()
@@ -269,123 +280,7 @@ async def ask_gift_id(update: Update, context) -> int:
     try:
         if photo_file_id: await context.bot.send_photo(chat_id, photo_file_id, caption=caption, parse_mode="HTML")
         else: await context.bot.send_message(chat_id, caption, parse_mode="HTML")
-    except: pass
-    return ConversationHandler.END
-
-# ── Edit Lucky Draw ──
-async def edit_lucky_cb(update: Update, context):
-    query = update.callback_query; await query.answer()
-    if not await is_admin(update.effective_user.id): return
-    chat_id = int(query.data.split(":")[1])
-    context.user_data["edit_lucky_chat_id"] = chat_id
-    await query.edit_message_text("✏️ Выберите, что изменить:", reply_markup=build_edit_lucky_keyboard(chat_id))
-
-async def edit_lucky_chance_cb(update: Update, context) -> int:
-    query = update.callback_query; await query.answer()
-    chat_id = int(query.data.split(":")[1])
-    context.user_data["edit_lucky_chat_id"] = chat_id
-    await query.edit_message_text("🎲 Введите новый шанс (0.001–100)%:"); return EDIT_LUCKY_CHANCE
-
-async def edit_lucky_winners_cb(update: Update, context) -> int:
-    query = update.callback_query; await query.answer()
-    chat_id = int(query.data.split(":")[1])
-    context.user_data["edit_lucky_chat_id"] = chat_id
-    await query.edit_message_text("👥 Введите новое количество победителей:"); return EDIT_LUCKY_WINNERS
-
-async def edit_lucky_duration_cb(update: Update, context) -> int:
-    query = update.callback_query; await query.answer()
-    chat_id = int(query.data.split(":")[1])
-    context.user_data["edit_lucky_chat_id"] = chat_id
-    await query.edit_message_text("⏱ Введите новую длительность в минутах (0 = без ограничения):"); return EDIT_LUCKY_DURATION
-
-async def edit_lucky_prize_cb(update: Update, context) -> int:
-    query = update.callback_query; await query.answer()
-    chat_id = int(query.data.split(":")[1])
-    context.user_data["edit_lucky_chat_id"] = chat_id
-    await query.edit_message_text("🎁 Введите новое описание приза:"); return EDIT_LUCKY_PRIZE
-
-async def edit_lucky_photo_cb(update: Update, context) -> int:
-    query = update.callback_query; await query.answer()
-    chat_id = int(query.data.split(":")[1])
-    context.user_data["edit_lucky_chat_id"] = chat_id
-    await query.edit_message_text("🖼 Отправьте новое фото (или /skip для удаления):"); return EDIT_LUCKY_PHOTO
-
-async def edit_lucky_gift_cb(update: Update, context) -> int:
-    query = update.callback_query; await query.answer()
-    chat_id = int(query.data.split(":")[1])
-    context.user_data["edit_lucky_chat_id"] = chat_id
-    await query.edit_message_text("🎁 Введите новый gift_id (числовой) или /skip:"); return EDIT_LUCKY_GIFT
-
-async def edit_lucky_chance_value(update: Update, context):
-    text = update.message.text.strip().replace(',', '.')
-    try:
-        chance = float(text)
-        if not (0.001 <= chance <= 100): raise ValueError
-    except:
-        await update.message.reply_text("❌ Введите число от 0.001 до 100."); return EDIT_LUCKY_CHANCE
-    chat_id = context.user_data["edit_lucky_chat_id"]
-    await db.update_lucky_draw_settings(chat_id, chance=chance)
-    await update.message.reply_text(f"✅ Шанс изменён на {chance}%.")
-    return ConversationHandler.END
-
-async def edit_lucky_winners_value(update: Update, context):
-    text = update.message.text.strip()
-    if not text.isdigit() or int(text) < 1: await update.message.reply_text("❌ Введите целое число >0."); return EDIT_LUCKY_WINNERS
-    chat_id = context.user_data["edit_lucky_chat_id"]
-    await db.update_lucky_draw_settings(chat_id, winners_count=int(text))
-    await update.message.reply_text("✅ Количество победителей обновлено.")
-    return ConversationHandler.END
-
-async def edit_lucky_duration_value(update: Update, context):
-    text = update.message.text.strip()
-    if not text.isdigit(): await update.message.reply_text("❌ Введите число минут."); return EDIT_LUCKY_DURATION
-    duration = int(text)
-    chat_id = context.user_data["edit_lucky_chat_id"]
-    await db.update_lucky_draw_settings(chat_id, duration_minutes=duration)
-    # Cancel old timer
-    game = await db.get_active_lucky_draw(chat_id)
-    if game and game.get('job_name'):
-        for j in context.job_queue.jobs():
-            if j.name == game['job_name']: j.schedule_removal()
-    if duration > 0:
-        now = time.time()
-        job_name = f"lucky_end_{chat_id}_{int(now)}"
-        context.application.job_queue.run_once(
-            lambda ctx, cid=chat_id: lucky_mgr._end_lucky_draw(ctx, cid, "Время вышло"),
-            duration * 60, chat_id=chat_id, name=job_name
-        )
-        await db.set_lucky_draw_timer(chat_id, now, job_name)
-    else:
-        await db.set_lucky_draw_timer(chat_id, None, None)
-    await update.message.reply_text(f"✅ Длительность изменена на {duration} мин.")
-    return ConversationHandler.END
-
-async def edit_lucky_prize_value(update: Update, context):
-    prize = update.message.text.strip()
-    if not prize: await update.message.reply_text("❌ Приз не может быть пустым."); return EDIT_LUCKY_PRIZE
-    chat_id = context.user_data["edit_lucky_chat_id"]
-    await db.update_lucky_draw_settings(chat_id, prize=prize)
-    await update.message.reply_text("✅ Приз обновлён.")
-    return ConversationHandler.END
-
-async def edit_lucky_photo_value(update: Update, context):
-    chat_id = context.user_data["edit_lucky_chat_id"]
-    if update.message.photo:
-        await db.update_lucky_draw_settings(chat_id, photo_file_id=update.message.photo[-1].file_id)
-        await update.message.reply_text("✅ Фото обновлено.")
-    elif update.message.text and update.message.text.lower() == "/skip":
-        await db.update_lucky_draw_settings(chat_id, photo_file_id=None)
-        await update.message.reply_text("✅ Фото удалено.")
-    else:
-        await update.message.reply_text("❌ Отправьте фото или /skip."); return EDIT_LUCKY_PHOTO
-    return ConversationHandler.END
-
-async def edit_lucky_gift_value(update: Update, context):
-    text = update.message.text.strip()
-    gift_id = None if text.lower() == "/skip" else text
-    chat_id = context.user_data["edit_lucky_chat_id"]
-    await db.update_lucky_draw_settings(chat_id, gift_id=gift_id)
-    await update.message.reply_text("✅ Подарок обновлён.")
+    except Exception as e: logger.error(f"Announce fail: {e}")
     return ConversationHandler.END
 
 # ── Guess Number ──
@@ -454,7 +349,7 @@ async def guess_photo(update: Update, context) -> int:
     try:
         if photo_file_id: await context.bot.send_photo(chat_id, photo_file_id, caption=caption, parse_mode="HTML")
         else: await context.bot.send_message(chat_id, caption, parse_mode="HTML")
-    except: pass
+    except Exception as e: logger.error(f"Announce fail: {e}")
     return ConversationHandler.END
 
 # ── Dice Game ──
@@ -507,8 +402,7 @@ async def stop_game_cb(update: Update, context):
         if j.name and (j.name.startswith(f"auction_{chat_id}") or j.name.startswith(f"countdown_{chat_id}")): j.schedule_removal()
     await db.deactivate_game(chat_id)
     await query.edit_message_text(f"🛑 Ивент остановлен в {chat_id}.")
-    try: await context.bot.send_message(chat_id, "🛑 Ивент остановлен администратором.")
-    except: pass
+    try: await context.bot.send_message(chat_id, "🛑 Ивент остановлен администратором."); except: pass
 
 async def stop_lucky_cb(update: Update, context):
     query = update.callback_query; await query.answer()
@@ -520,8 +414,7 @@ async def stop_lucky_cb(update: Update, context):
             if j.name == game['job_name']: j.schedule_removal()
     await db.deactivate_lucky_draw(chat_id)
     await query.edit_message_text(f"🎰 Lucky Draw остановлен в {chat_id}.")
-    try: await context.bot.send_message(chat_id, "🎰 Lucky Draw остановлен администратором.")
-    except: pass
+    try: await context.bot.send_message(chat_id, "🎰 Lucky Draw остановлен администратором."); except: pass
 
 async def stop_dice_cb(update: Update, context):
     query = update.callback_query; await query.answer()
@@ -529,8 +422,7 @@ async def stop_dice_cb(update: Update, context):
     chat_id = int(query.data.split(":")[1])
     await db.deactivate_dice_game(chat_id)
     await query.edit_message_text(f"🎲 Dice Game остановлена в {chat_id}.")
-    try: await context.bot.send_message(chat_id, "🎲 Игра остановлена администратором.")
-    except: pass
+    try: await context.bot.send_message(chat_id, "🎲 Игра остановлена администратором."); except: pass
 
 async def stop_guess_cb(update: Update, context):
     query = update.callback_query; await query.answer()
@@ -538,8 +430,7 @@ async def stop_guess_cb(update: Update, context):
     chat_id = int(query.data.split(":")[1])
     await guess_mgr._end_guess_game(context, chat_id)
     await query.edit_message_text(f"🎯 Guess Number остановлена в {chat_id}.")
-    try: await context.bot.send_message(chat_id, "🎯 Игра остановлена администратором.")
-    except: pass
+    try: await context.bot.send_message(chat_id, "🎯 Игра остановлена администратором."); except: pass
 
 async def stats_game_cb(update: Update, context):
     query = update.callback_query; await query.answer()
@@ -566,13 +457,14 @@ async def cancel_conv(update: Update, context) -> int:
     return ConversationHandler.END
 
 def register_admin_handlers(app):
+    # Conversations
     auction_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(auction_custom_cb, pattern=r"^auction_custom:")],
         states={
             ASK_TIMER: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_timer)],
             ASK_STARS: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_stars)],
             ASK_DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_description),
-                              CommandHandler("skip", lambda u,c: ask_description(u,c))]
+                              CommandHandler("skip", lambda u, c: ask_description(u, c))]
         },
         fallbacks=[CommandHandler("cancel", cancel_conv), CommandHandler("start", cancel_conv)],
         per_user=True
@@ -585,9 +477,9 @@ def register_admin_handlers(app):
             ASK_WINNERS: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_winners)],
             ASK_LUCKY_DURATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_lucky_duration)],
             ASK_PHOTO: [MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), ask_photo),
-                        CommandHandler("skip", lambda u,c: ask_photo(u,c))],
+                        CommandHandler("skip", lambda u, c: ask_photo(u, c))],
             ASK_GIFT_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_gift_id),
-                          CommandHandler("skip", lambda u,c: ask_gift_id(u,c))]
+                          CommandHandler("skip", lambda u, c: ask_gift_id(u, c))]
         },
         fallbacks=[CommandHandler("cancel", cancel_conv), CommandHandler("start", cancel_conv)],
         per_user=True
@@ -610,7 +502,7 @@ def register_admin_handlers(app):
             GUESS_DURATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, guess_duration)],
             GUESS_PRIZE: [MessageHandler(filters.TEXT & ~filters.COMMAND, guess_prize)],
             GUESS_PHOTO: [MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), guess_photo),
-                          CommandHandler("skip", lambda u,c: guess_photo(u,c))]
+                          CommandHandler("skip", lambda u, c: guess_photo(u, c))]
         },
         fallbacks=[CommandHandler("cancel", cancel_conv), CommandHandler("start", cancel_conv)],
         per_user=True
@@ -625,38 +517,6 @@ def register_admin_handlers(app):
         states={EDIT_STARS: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_stars_value)]},
         fallbacks=[CommandHandler("cancel", cancel_conv)], per_user=True
     )
-    edit_lucky_chance_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(edit_lucky_chance_cb, pattern=r"^edit_lucky_chance:")],
-        states={EDIT_LUCKY_CHANCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_lucky_chance_value)]},
-        fallbacks=[CommandHandler("cancel", cancel_conv)], per_user=True
-    )
-    edit_lucky_winners_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(edit_lucky_winners_cb, pattern=r"^edit_lucky_winners:")],
-        states={EDIT_LUCKY_WINNERS: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_lucky_winners_value)]},
-        fallbacks=[CommandHandler("cancel", cancel_conv)], per_user=True
-    )
-    edit_lucky_duration_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(edit_lucky_duration_cb, pattern=r"^edit_lucky_duration:")],
-        states={EDIT_LUCKY_DURATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_lucky_duration_value)]},
-        fallbacks=[CommandHandler("cancel", cancel_conv)], per_user=True
-    )
-    edit_lucky_prize_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(edit_lucky_prize_cb, pattern=r"^edit_lucky_prize:")],
-        states={EDIT_LUCKY_PRIZE: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_lucky_prize_value)]},
-        fallbacks=[CommandHandler("cancel", cancel_conv)], per_user=True
-    )
-    edit_lucky_photo_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(edit_lucky_photo_cb, pattern=r"^edit_lucky_photo:")],
-        states={EDIT_LUCKY_PHOTO: [MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), edit_lucky_photo_value),
-                                  CommandHandler("skip", lambda u,c: edit_lucky_photo_value(u,c))]},
-        fallbacks=[CommandHandler("cancel", cancel_conv)], per_user=True
-    )
-    edit_lucky_gift_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(edit_lucky_gift_cb, pattern=r"^edit_lucky_gift:")],
-        states={EDIT_LUCKY_GIFT: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_lucky_gift_value),
-                                CommandHandler("skip", lambda u,c: edit_lucky_gift_value(u,c))]},
-        fallbacks=[CommandHandler("cancel", cancel_conv)], per_user=True
-    )
 
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("active", active_cmd))
@@ -669,18 +529,11 @@ def register_admin_handlers(app):
     app.add_handler(guess_conv)
     app.add_handler(edit_timer_conv)
     app.add_handler(edit_stars_conv)
-    app.add_handler(edit_lucky_chance_conv)
-    app.add_handler(edit_lucky_winners_conv)
-    app.add_handler(edit_lucky_duration_conv)
-    app.add_handler(edit_lucky_prize_conv)
-    app.add_handler(edit_lucky_photo_conv)
-    app.add_handler(edit_lucky_gift_conv)
 
     app.add_handler(CallbackQueryHandler(select_group_cb, pattern=r"^select_group:"))
     app.add_handler(CallbackQueryHandler(auction_mode_cb, pattern=r"^auction_mode:"))
     app.add_handler(CallbackQueryHandler(auction_default_cb, pattern=r"^auction_default:"))
     app.add_handler(CallbackQueryHandler(edit_game_cb, pattern=r"^edit_game:"))
-    app.add_handler(CallbackQueryHandler(edit_lucky_cb, pattern=r"^edit_lucky:"))
     app.add_handler(CallbackQueryHandler(back_from_edit_cb, pattern=r"^back_from_edit:"))
     app.add_handler(CallbackQueryHandler(back_to_mode_cb, pattern=r"^back_to_mode:"))
     app.add_handler(CallbackQueryHandler(stop_game_cb, pattern=r"^stop_game:"))
